@@ -2,6 +2,7 @@
 // as the value, an array of unique ids of all the reactions that are observing that observable
 const observables: Record<number, Array<number>> = {}
 const reactionSchedulers: Record<number, () => void> = {}
+const recomputeSchedulers: Record<number, () => void> = {}
 
 let fnIdBeingExecuted: number | null = null
 
@@ -52,12 +53,42 @@ export const observable = (initialValue: any) => {
     if (newValue !== value) {
       value = newValue
       observables[guid].forEach(fnId => {
-        reactionSchedulers[fnId]()
+        reactionSchedulers[fnId]?.()
+        recomputeSchedulers[fnId]?.()
       })
     }
   }
 
   return { get, set }
+}
+
+export const computed = (getterFn: () => any) => {
+  const guid = getGuid()
+  observables[guid] = []
+
+  let value: any = null
+
+  const getterWrapper = () => {
+    fnIdBeingExecuted = guid
+    const result = getterFn()
+    fnIdBeingExecuted = null
+    return result
+  }
+
+  value = getterWrapper()
+
+  const get = () => {
+    return value
+  }
+
+
+  function scheduleRecompute() {
+      value = getterWrapper()
+  }
+
+  recomputeSchedulers[guid] = scheduleRecompute
+
+  return { get }
 }
 
 
