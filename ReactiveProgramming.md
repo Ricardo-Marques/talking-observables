@@ -8,7 +8,7 @@ Loosely speaking, it's the concept that when x changes or updates in one locatio
 
 [Source for the above: https://stackoverflow.com/a/16652921]
 
-I would just reword the last bit - it's the concept that when x changes or updates within a specific code location, the things that depend on the value of x are recalculated and updated in various other locations, without that behavior being explicitly defined in the code location where the change or update occurs.
+I would just reword the last bit - it's the concept that when x changes or updates within a specific code location, the things that depend on the value of x are recalculated and updated in various other locations, _without that behavior being explicitly defined in the code location where the change or update occurs._ Reactive programming can be implemented in single threaded applications too.
 
 ## WDYM?! Show me the code
 
