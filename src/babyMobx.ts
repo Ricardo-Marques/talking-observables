@@ -1,5 +1,5 @@
 // record of all registered observables (using a unique id as the key)
-// as the value, an array of unique ids of all the reactions that are observing that observable
+// as the value, an array of unique ids of all the reactions and computed values that are observing that observable
 const observables: Record<number, Array<number>> = {}
 const reactionSchedulers: Record<number, () => void> = {}
 const recomputeSchedulers: Record<number, () => void> = {}
@@ -81,9 +81,8 @@ export const computed = (getterFn: () => any) => {
     return value
   }
 
-
   function scheduleRecompute() {
-      value = getterWrapper()
+    value = getterWrapper()
   }
 
   recomputeSchedulers[guid] = scheduleRecompute

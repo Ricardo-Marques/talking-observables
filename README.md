@@ -1,34 +1,172 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Reactive programming
 
-## Getting Started
+## What is reactive programming
 
-First, run the development server:
+Reactive programming is the general paradigm behind easily propagating changes in a data stream through the execution of a program. It's not a specific pattern or entity per-se, it's an idea, or style of programming (such as object oriented progamming, functional programming, etc.)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+Loosely speaking, it's the concept that when x changes or updates in one location, the things that depend on the value of x are recalculated and updated in various other locations in a non-blocking fashion, without having to tie up threads sitting around just waiting for events to happen.
+
+[Source for the above: https://stackoverflow.com/a/16652921]
+
+I would just reword the last bit - it's the concept that when x changes or updates within a specific code location, the things that depend on the value of x are recalculated and updated in various other locations, _without that behavior being explicitly defined in the code location where the change or update occurs._ Reactive programming can be implemented in single threaded applications too.
+
+## WDYM?! Show me the code
+
+Lets use an example of a spreadsheet app. Within that spreadsheet app, we want users to be able to update cells. When a cell is updated, we want to recalculate all the cells that reference that cell.
+
+Using "traditional" imperative programming, we would have to write code that looks something like this
+
+```typescript
+function handleTypeInCell(cellCoordinates: {x:number, y: number}, value: string) {
+    // update the cell
+    updateCell(cellCoordinates, value)
+    // recalculate all the cells that reference this cell
+    updateCellsWithReferences(cellCoordinates)
+}
+
+function updateCellsWithReferences(cellCoordinates: {x: number, y:number}) {
+    cells.forEach(cell => {
+        if (cell.references(cellCoordinates)) {
+            cell.recalculate()
+        }
+    })
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With reactive programming, we would instead write something like this
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```typescript
+function handleTypeInCell(cellCoordinates: {x:number, y: number}, value: string) {
+    // update the cell
+    cells.update(cellCoordinates, value)
+    // notice how we're no longer calling updateCellsWithReferences here
+}
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+function updateCellsWithReferences(cellCoordinates: {x: number, y:number}) {
+    cells.forEach(cell => {
+        if (cell.references(cellCoordinates)) {
+            cell.recalculate()
+        }
+    })
+}
 
-## Learn More
+// whenever a cell is updated, recalculate all the cells that reference that cell
+cells.subscribe('update', (cellCoordinates: {x:number, y: number}) => {
+    updateCellsWithReferences(cellCoordinates)
+})
+```
 
-To learn more about Next.js, take a look at the following resources:
+The difference here is that we don't have to _explicitely_ recalculate all the cells that reference the changed cell. Instead, we just subscribe to the cell `update` event, and whenever that event is fired, we _reactively_ recalculate all the cells that reference the changed cell.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## What are the advantages of reactive programming
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+These are just some of the advantages of reactive programming that I find most compelling, there are many more
 
-## Deploy on Vercel
+### - It lessens cognitive overhead and makes many features easier to implement
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Sticking to the same example of a spreadsheet app with imperative style programming, lets say that we wanted to support multiple users editing the same spreadsheet at the same time. Then we also want to have a cell that can poll data from an API on a set interval.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+All these extra sources of cell changes would need to be accounted for, and each of them would need to remember to call updateCellsWithReferences.
+
+Then lets say that when a cell is updated, we also need to do something unrelated to the spreadsheet, like update a database. 
+We would have a few options:
+
+1) Update the database in the existing `updateCellsWithReferences` function  
+    This could become problematic if a dev uses `updateCellsWithReferences` without the intention of storing to the DB
+2) Create a new function `updateCellsWithReferencesAndStoreToDB`  
+    Then we have to update all the functions that currently call `updateCellsWithReferences` to instead call `updateCellsWithReferencesAndStoreToDB` as needed
+
+With reactive programming, we would subscribe to other users typing, and new data coming in from cells that are polling (just like we would in the imperative example), and instead would call the cell `update` event when those events occur. Then we could also create a subscriber to the cellUpdated event which updates the database.
+
+Note how all the function names remain the same, that we didn't have to update any existing functions, and we didn't have to remember to call any functions other than cell `update`.
+
+### - It gives extreme control over prioritization of events, and the speed at which they are processed
+
+Lets say that we end up with a giant spreadsheet, with hundreds of different poll sources and users typing at the same time. 
+
+We don't want to recalculate all the cells that reference a changed cell every time a cell is updated, this would likely result in a completely blocked UX.
+
+Instead, we can use a concept which is called "backpressure". Also can be referred to as subscription debouncing.
+Backpressure helps to prevent overload and resource exhaustion in scenarios where the rate of data production exceeds the rate of data consumption.
+
+In our example, we could use backpressure to limit the rate at which the `cellUpdated` event is fired, and therefore limit the rate at which the cells that reference a changed cell are recalculated.
+
+Lets say that we decide that updating the cells once a second is sufficient. That code change could look something like this
+
+```typescript
+// whenever a cell is updated, recalculate all the cells that reference that cell
+cells.subscribe('update', (cellCoordinates: {x:number, y: number}) => {
+    updateCellsWithReferences(cellCoordinates)
+}, { backpressure: 1000 })
+```
+
+To accomplish something similar with imperative programming, we could:
+ - implement a queue of events, and then process those events at a set interval. Then we would need to update all the functions that call `updateCellsWithReferences` to instead add the cell coordinates to this queue
+ - update `updateCellsWithReferences` to add to the queue instead of directly updating the cells, which would be problematic if a dev uses `updateCellsWithReferences` without the intention of adding to that queue (wanting an immediate update). So this would require us to investigate every code bit that calls `updateCellsWithReferences` to make sure that it's adding to the queue when it should be.
+
+Backpressure is just one example of the control that reactive programming gives you over the prioritization of events, and the speed at which they are processed, with minimal code changes.
+
+## All find and dandy, surely there's some disadvantages
+
+### - It can be difficult to debug
+
+When using reactive programming, it can be difficult to debug because the code is no longer executed in a linear fashion. Instead, the code is executed in response to events, and the source of those events which were fired is not always clear.
+
+### - Memory overheads
+
+ Some applications can become prohibitively memory intensive. This is because data streams need to store the published data so that Observers can process that data when they are ready.
+ In practice this is not something that I've dealt with, but it's something to be aware of. If you're dealing with large event queues you may run into memory issues.
+
+## Reactive programming vs Observable programming
+
+Observable programming is a specific pattern or design approach commonly found in reactive programming. It is based on the concept of Observables, which are data streams or sources of events. Observables represent a way to observe and react to the emitted values over time. An observable is like a pipeline that produces data, and observers can subscribe to that pipeline to receive and react to the emitted data.
+
+_In the context of observable programming, observables are not only used for events but also for handling streams of data or sequences._
+
+[Source: ChatGPT]
+
+Here's what the example above could look like using my favorite observable programming library, Mobx
+
+```typescript
+class Cell {
+    @observable
+    value: string = ''
+    
+    @observable
+    references: Cell[] = []
+    
+    @computed
+    get calculatedValue() {
+        if (this.references.length === 0) {
+            return this.value
+        } else {
+            // in this simplified example, we're just adding the values of the referenced cells
+            // any further logic to handle formulas etc. would go here, and would look the same
+            // in imperative and reactive programming styles
+            return this.references.reduce((acc, referencedCell) => {
+                return acc + referencedCell.calculatedValue
+            }, '')
+        }
+    }
+
+    @action
+    update(value: string) {
+        if (this.references.length === 0) {
+            this.value = value
+        } else {
+            throw new Error('Cannot update a cell that references other cells')
+        }
+    }
+    
+    @action
+    addReference(cell: Cell) {
+        this.references.push(cell)
+    }
+}
+```
+
+Initially this may look confusing or counter intuitive. Some questions that may pop up are:
+- What is `@observable`? What is `@computed`? What is `@action`?
+- Isn't this extremely non performant? Looks like we're having to recalculate the calculatedValue every time we attempt to get it, which may be many times per second depending on how frequently we want to update the UI!
+
+Lets dive into those questions and try to answer them with some code!

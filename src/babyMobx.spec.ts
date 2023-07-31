@@ -9,14 +9,18 @@ test('reaction runs when an observable changes and the predicate fn returns true
     const effectFn = () => reactionRunCount++
     reaction(predicateFn, effectFn)
 
+    // initially, the predicate fn returns false, so the reaction does not run    
     expect(reactionRunCount).toBe(0)
 
+    // set the value to true, so the reaction should run
     value.set(true)
     expect(reactionRunCount).toBe(1)
 
+    // set the value to false, the reaction should not run again, since the predicate fn returns false
     value.set(false)
     expect(reactionRunCount).toBe(1)
 
+    // set the value to true, the reaction should run again, since the predicate fn now returns true
     value.set(true)
     expect(reactionRunCount).toBe(2)
 })
@@ -42,37 +46,42 @@ test('reaction does not run if the observables used in the predicate fn do not c
     const effectFn = () => reactionRunCount++
     reaction(predicateFn, effectFn)
 
+    // ran once because the predicate fn initially returned true
     expect(reactionRunCount).toBe(1)
 
+    // set the value to true, but the reaction should not run again,
+    // since the values of the observables used in the predicate fn did not change
     value.set(true)
     expect(reactionRunCount).toBe(1)
 })
 
 
 test('computed values only recompute when an observable used in its computation changes', () => {
-    const value1 = observable(true)
-    const value2 = observable(true)
-    const value3 = observable(true) // will not be used in the computed value
+    const usedObservable1 = observable(true)
+    const usedObservable2 = observable(true)
+    const notUsedObservable = observable(true) // will not be used in the computed value
 
     let computedRunCount = 0
 
-    const computedValue = computed(() => {
+    function getComputedValue() {
         computedRunCount++
-        return value1.get() && value2.get()
-    })
+        return usedObservable1.get() && usedObservable2.get()
+    }
+
+    const computedValue = computed(getComputedValue)
 
     computedValue.get()
     expect(computedRunCount).toBe(1)
 
-    value1.set(false)
+    usedObservable1.set(false)
     computedValue.get()
     expect(computedRunCount).toBe(2)
 
-    value1.set(false)
+    usedObservable1.set(false)
     computedValue.get()
-    expect(computedRunCount).toBe(2) // still only computed twice, even though value1 was set to false twice
+    expect(computedRunCount).toBe(2) // still only computed twice, because usedObservable1 was set to the same value
 
-    value3.set(false) // not used in the computed value
+    notUsedObservable.set(false) // not used in the computed value
     computedValue.get()
     expect(computedRunCount).toBe(2) // still only computed twice
 })
