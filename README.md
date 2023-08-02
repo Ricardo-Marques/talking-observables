@@ -110,12 +110,12 @@ Backpressure is just one example of the control that reactive programming gives 
 
 ### - It can be difficult to debug
 
-When using reactive programming, it can be difficult to debug because the code is no longer executed in a linear fashion. Instead, the code is executed in response to events, and the source of those events which were fired is not always clear.
+When using reactive programming, it can be difficult to debug because the code is no longer executed in a linear fashion. Instead, the code is executed in response to events, and the source of those events is not always clear.
 
-### - Memory overheads
+### - Memory overhead
 
- Some applications can become prohibitively memory intensive. This is because data streams need to store the published data so that Observers can process that data when they are ready.
- In practice this is not something that I've dealt with, but it's something to be aware of. If you're dealing with large event queues you may run into memory issues.
+ Some applications can become prohibitively memory intensive. This is because data streams need to store the published data so that observers can process that data when they are ready.
+ In practice this is not an issue that I've encountered, but it's something to be aware of. If you're dealing with large event queues you may run into memory issues.
 
 ## Reactive programming vs Observable programming
 
@@ -145,7 +145,7 @@ class Cell {
             // in imperative and reactive programming styles
             return this.references.reduce((acc, referencedCell) => {
                 return acc + referencedCell.calculatedValue
-            }, '')
+            }, 0)
         }
     }
 
