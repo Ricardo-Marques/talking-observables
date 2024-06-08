@@ -106,7 +106,7 @@ To accomplish something similar with imperative programming, we could:
 
 Backpressure is just one example of the control that reactive programming gives you over the prioritization of events, and the speed at which they are processed, with minimal code changes.
 
-## All find and dandy, surely there's some disadvantages
+## All fine and dandy, surely there's some disadvantages
 
 ### - It can be difficult to debug
 
